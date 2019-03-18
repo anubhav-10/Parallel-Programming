@@ -3,9 +3,21 @@
 #include <stdlib.h>
 #include <vector>
 #include <cmath>
+#include <algorithm>
 #define pb push_back
 #define epsilon 1e5
 using namespace std;
+
+void print_matrix(string name, int M, int N, float* A){
+	cout << name << ": \n";
+	for(int i=0; i<M; i++){
+		for(int j=0; j<N; j++){
+			cout << A[i*N + j] << " " ;
+		}
+		cout << endl;
+	}
+	cout << endl;
+}
 
 void transpose(float *Data, int M, int N, float *Data_T) {
 	for(int i = 0; i < M; i++) {
@@ -16,6 +28,12 @@ void transpose(float *Data, int M, int N, float *Data_T) {
 }
 
 void matmul(float *mat1, float *mat2, int M, int N, int K, float *res) {
+	for(int i = 0; i < M; i++) {
+		for(int j = 0; j < K; j++) {
+			res[j * M + i] = 0;
+		}
+	}
+
 	for(int i = 0; i < M; i++) {
 		for(int j = 0; j < K; j++) {
 			for(int k = 0; k < N; k++)
@@ -52,44 +70,68 @@ void copyVector(float *from, float *to, int N) {
 		to[i] = from[i];
 }
 
-void classicalGS(float *mat, int M, int N, float *Q, float *R) {
-	// we need a_i's as columns so doing transpose
-	// here M = N so a square matrix
+// void classicalGS(float *mat, int M, int N, float *Q, float *R) {
+// 	// we need a_i's as columns so doing transpose
+// 	// here M = N so a square matrix
+// 	float mat_T[M * N];
+// 	transpose(mat, M, N, mat_T);
+// 	float E[M * N];
+// 	float U[M * N];
+// 	for(int i = 0; i < N; i++) {
+// 		copyVector(&mat_T[i * N], &U[i * N], N);
+// 		for(int j = 0; j < i; j++) {
+// 			float proj[N];
+// 			projection(&U[j * N], &mat_T[i * N], N, proj);
+// 			for(int k = 0; k < N; k++)
+// 				U[i * N + k] -= proj[k];
+// 		}
+// 		int mod = sqrt(innerProduct(&U[i * N], &U[i * N], N));
+// 		for(int j = 0; j < N; j++) {
+// 			E[i * N + j] = U[i * N + j] / mod;
+// 		}
+// 	}
+// 	// Columns are still represented as rows
+// 	transpose(E, N, N, Q);
+// 	// matmul(E, mat, N, N, N, R);
+// 	for(int i = 0; i < N; i++) {
+// 		for(int j = i; j < N; j++) {
+// 			R[i * N + j] = innerProduct(&E[i * N], &mat_T[j * N], N);
+// 		}
+// 	}
+// }
+
+void GS(float *mat, int M, int N, float *Q, float *R) {
 	float mat_T[M * N];
 	transpose(mat, M, N, mat_T);
-	float E[M * N];
-	float U[M * N];
+	float V_T[M * N];
+	float Q_T[M * N];
 	for(int i = 0; i < N; i++) {
-		copyVector(&mat_T[i * N], &U[i * N], N);
+		for(int j = 0; j < N; j++)
+			V_T[i * N + j] = mat_T[i * N + j];
 		for(int j = 0; j < i; j++) {
-			float proj[N];
-			projection(&U[j * N], &mat_T[i * N], N, proj);
-			for(int k = 0; k < N; k++)
-				U[i * N + k] -= proj[k];
+			R[j * N + i] = innerProduct(&Q_T[j * N], &mat_T[i * N], N);
+			for(int k = 0; k < N; k++) {
+				V_T[i * N + k] -= R[j * N + i] * Q_T[j * N + k];
+			}
 		}
-		int mod = sqrt(innerProduct(&U[i * N], &U[i * N], N));
+		R[i * N + i] = sqrt(innerProduct(&V_T[i * N], &V_T[i * N], N));
 		for(int j = 0; j < N; j++) {
-			E[i * N + j] = U[i * N + j] / mod;
+			Q_T[i * N + j] = V_T[i * N + j] / R[i * N + i];
 		}
 	}
-	// Columns are still represented as rows
-	transpose(E, N, N, Q);
-	// matmul(E, mat, N, N, N, R);
-	for(int i = 0; i < N; i++) {
-		for(int j = i; j < N; j++) {
-			R[i * N + j] = innerProduct(&E[i * N], &mat_T[j * N], N);
-		}
-	}
+	transpose(Q_T, N, N, Q);
 }
 
 bool checkConvergence(float *D, float *E, float *D1, float *E1, int N) {
+	float conv = 0;
 	for(int i = 0; i < N; i++) {
 		for(int j = 0; j < N; j++) {
-			if(abs(D1[i * N + j] - D[i * N + j]) > epsilon || abs(E1[i * N + j] - E[i * N + j]) > epsilon)
-				return 0;
+			conv += abs(D1[i * N + j] - D[i * N + j]);
+			// if(abs(D1[i * N + j] - D[i * N + j]) > epsilon || abs(E1[i * N + j] - E[i * N + j]) > epsilon)
+			// 	return 0;
 		}
 	}
-	return 1;
+	return conv < epsilon;
 }
 
 void QRAlgo(float *mat, int M, int N, float *eigenValues, float *eigenVectors) {
@@ -106,13 +148,21 @@ void QRAlgo(float *mat, int M, int N, float *eigenValues, float *eigenVectors) {
 	bool converged = 0;
 	while(!converged) {
 		float Q[M * N], R[M * N] = {0};
-		classicalGS(D, M, N, Q, R);
+		GS(D, M, N, Q, R);
 		float D1[M * N], E1[M * N];
 		matmul(R, Q, N, N, N, D1);
 		matmul(E, Q, N, N, N, E1);
 		converged = checkConvergence(D, E, D1, E1, N);
-		D = D1;
-		E = E1;
+
+		for(int i = 0; i < N; i++) {
+			for(int j = 0; j < N; j++) {
+				D[i * N + j] = D1[i * N + j];
+				E[i * N + j] = E1[i * N + j];
+			}
+		}
+
+		// D = D1;
+		// E = E1;
 	}
 	for(int i = 0; i < N; i++) {
 		eigenValues[i] = D[i * N + i];	
@@ -127,8 +177,35 @@ void QRAlgo(float *mat, int M, int N, float *eigenValues, float *eigenVectors) {
 // 	*****************************************************
 // */
 void SVD(int M, int N, float* D, float** U, float** SIGMA, float** V_T) {
-	float D_T[M * N];
+	float D_T[N * M];
 	transpose(D, M, N, D_T);
+	float mat[N * N];
+	matmul(D_T, D, N, M, N, mat);
+
+	float eigenValues[N * N], eigenVectors[N * N];
+	QRAlgo(mat, N, N, eigenValues, eigenVectors);
+
+	sort(eigenValues, eigenValues + N);
+	float sigma[N * M];
+	float sigma_inv[M * N];
+	for(int i = N - 1; i >= 0; i--) {
+		*SIGMA[i] = sqrt(eigenValues[i]);
+		sigma[i * M + i] = sqrt(eigenValues[i]);
+		sigma_inv[i * N + i] = 1 / sigma[i * M + i];
+	}
+
+	for(int i = 0; i < N; i++) {
+		for(int j = 0; j < N; j++) {
+			*U[i * N + j] = eigenVectors[i * N + i];
+		}
+	}
+
+	float U_T[N * N];
+	transpose(*U, N, N, U_T);
+
+	float temp[M * N];
+	matmul(sigma_inv, U_T, M, N, N, temp);
+	matmul(temp, D_T, M, N, M, *V_T);
 }
 
 // /*

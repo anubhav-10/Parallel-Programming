@@ -1,5 +1,6 @@
 #include <malloc.h>
 #include <omp.h>
+#include <stdlib.h>
 #include <vector>
 #include <cmath>
 #define pb push_back
@@ -9,7 +10,7 @@ using namespace std;
 void transpose(float *Data, int M, int N, float *Data_T) {
 	for(int i = 0; i < M; i++) {
 		for(int j = 0; j < N; j++) {
-			Data_T[j*N+i] = Data[i*M+j];
+			Data_T[j * M + i] = Data[i * N + j];
 		}
 	}
 }
@@ -19,6 +20,14 @@ void matmul(float *mat1, float *mat2, int M, int N, int K, float *res) {
 		for(int j = 0; j < K; j++) {
 			for(int k = 0; k < N; k++)
 				res[i * K + j] += mat1[i * N + k] * mat2[k * K + j];
+		}
+	}
+}
+
+void inverse(float *mat, int M, int N, float *mat_inv) {
+	for(int i = 0; i < M; i++) {
+		for(int j = 0; j < N; j++) {
+			mat_inv[j * M + i] = 1 / mat[i * N + j];
 		}
 	}
 }
@@ -76,7 +85,7 @@ void classicalGS(float *mat, int M, int N, float *Q, float *R) {
 bool checkConvergence(float *D, float *E, float *D1, float *E1, int N) {
 	for(int i = 0; i < N; i++) {
 		for(int j = 0; j < N; j++) {
-			if(abs(D1[i * N + j] - D[i * N + J]) > epsilon || abs(E1[i * N + j] - E[i * N + J]) > epsilon)
+			if(abs(D1[i * N + j] - D[i * N + j]) > epsilon || abs(E1[i * N + j] - E[i * N + j]) > epsilon)
 				return 0;
 		}
 	}
@@ -84,8 +93,10 @@ bool checkConvergence(float *D, float *E, float *D1, float *E1, int N) {
 }
 
 void QRAlgo(float *mat, int M, int N, float *eigenValues, float *eigenVectors) {
-	float D[M * N];
-	float E[M * N] = {0};
+	// float D[M * N];
+	// float E[M * N] = {0};
+	float *D = (float*)calloc(M * N, sizeof(float));
+	float *E = (float*)calloc(M * N, sizeof(float));
 	for(int i = 0; i < N; i++) {
 		for(int j = 0; j < N; j++) {
 			D[i * N + j] = mat[i * N + j];
@@ -106,6 +117,7 @@ void QRAlgo(float *mat, int M, int N, float *eigenValues, float *eigenVectors) {
 	for(int i = 0; i < N; i++) {
 		eigenValues[i] = D[i * N + i];	
 	}
+	// it is colmuns of E
 	eigenVectors = E;
 }
 
@@ -115,8 +127,8 @@ void QRAlgo(float *mat, int M, int N, float *eigenValues, float *eigenVectors) {
 // 	*****************************************************
 // */
 void SVD(int M, int N, float* D, float** U, float** SIGMA, float** V_T) {
-	float Data_T[M * N];
-	transpose(D, M, N, Data_T);
+	float D_T[M * N];
+	transpose(D, M, N, D_T);
 }
 
 // /*

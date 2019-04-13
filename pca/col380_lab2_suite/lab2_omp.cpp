@@ -37,7 +37,7 @@ void matmul(float *mat1, float *mat2, int M, int N, int K, float *res) {
 		}
 	}
 
-	#pragma omp parallel for
+	#pragma omp parallel for collapse(2)
 	for(int i = 0; i < M; i++) {
 		for(int j = 0; j < K; j++) {
 			for(int k = 0; k < N; k++)

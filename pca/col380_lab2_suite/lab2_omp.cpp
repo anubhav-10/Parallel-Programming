@@ -75,10 +75,13 @@ void copyVector(float *from, float *to, int N) {
 }
 
 void GS(float *mat, int M, int N, float *Q, float *R) {
-	float mat_T[M * N];
+	// float mat_T[M * N];
+	float *mat_T = (float*)malloc(sizeof(float) * M * N);
 	transpose(mat, M, N, mat_T);
-	float V_T[M * N];
-	float Q_T[M * N];
+	// float V_T[M * N];
+	// float Q_T[M * N];
+	float *V_T = (float*)malloc(sizeof(float) * M * N);
+	float *Q_T = (float*)malloc(sizeof(float) * M * N);
 	// #pragma omp parallel for
 	for(int i = 0; i < N; i++) {
 		for(int j = 0; j < N; j++)
@@ -95,6 +98,9 @@ void GS(float *mat, int M, int N, float *Q, float *R) {
 		}
 	}
 	transpose(Q_T, N, N, Q);
+	free(mat_T);
+	free(V_T);
+	free(Q_T);
 }
 
 bool checkConvergence(float *D, float *E, float *D1, float *E1, int N) {
@@ -122,11 +128,17 @@ void QRAlgo(float *mat, int M, int N, float *eigenValues, float *eigenVectors) {
 		}
 		E[i * N + i] = 1;
 	}
+
 	bool converged = 0;
 	while(!converged) {
-		float Q[M * N], R[M * N] = {0};
+		// float Q[M * N], R[M * N] = {0};
+		float *Q = (float*)calloc(M * N, sizeof(float));
+		float *R = (float*)calloc(M * N, sizeof(float));
 		GS(D, M, N, Q, R);
-		float D1[M * N], E1[M * N];
+		// cout<<"a"<<endl;
+		// float D1[M * N], E1[M * N];
+		float *D1 = (float*)malloc(sizeof(float) * M * N);
+		float *E1 = (float*)malloc(sizeof(float) * M * N);
 		matmul(R, Q, N, N, N, D1);
 		matmul(E, Q, N, N, N, E1);
 		converged = checkConvergence(D, E, D1, E1, N);
@@ -138,7 +150,10 @@ void QRAlgo(float *mat, int M, int N, float *eigenValues, float *eigenVectors) {
 				E[i * N + j] = E1[i * N + j];
 			}
 		}
-
+		free(Q);
+		free(R);
+		free(D1);
+		free(E1);
 		// D = D1;
 		// E = E1;
 	}
@@ -162,8 +177,13 @@ void SVD(int M, int N, float* D, float** U, float** SIGMA, float** V_T) {
 	float mat[N * N];
 	matmul(D_T, D, N, M, N, mat);
 
-	float eigenValues[N * N], eigenVectors[N * N];
+	// float eigenValues[N * N], eigenVectors[N * N];
+	float *eigenValues = (float*)malloc(sizeof(float) * N * N);
+	float *eigenVectors = (float*)malloc(sizeof(float) * N * N);
+
+	// cout<<"a"<<endl;
 	QRAlgo(mat, N, N, eigenValues, eigenVectors);
+	// cout<<"a"<<endl;
 
 	// sort(eigenValues, eigenValues + N);
 	float sigma[N * M];

@@ -38,6 +38,7 @@ void Mul(double* A, double* B, int hA, int wA, int wB, double* C, int N) {
 	dim3 dimGrid((N + TILE_DIM - 1) / TILE_DIM, (N + TILE_DIM - 1) / TILE_DIM);
     dim3 dimBlock(TILE_DIM, TILE_DIM);
 	MatMul<<<dimGrid, dimBlock>>>(Ad, Bd, Cd, hA, wA, wA, wB, hA, wB);
+	// Muld<<<dimGrid, dimBlock>>>(Ad, Bd, wA, wB, Cd);
 	cudaMemcpy(C, Cd, size, cudaMemcpyDeviceToHost);
 	cudaFree(Ad);
 	cudaFree(Bd);
@@ -47,23 +48,26 @@ void Mul(double* A, double* B, int hA, int wA, int wB, double* C, int N) {
 __global__ void MatMul(double* A, double* B, double* C, int ARows, int ACols, int BRows, int BCols, int CRows, int CCols) {
 
   double CValue = 0;
-  int Row = blockIdx.y*TILE_DIM + threadIdx.y;
-  int Col = blockIdx.x*TILE_DIM + threadIdx.x;
+  int Row = blockIdx.y*TILE_DIM;
+  Row += threadIdx.y;
+  int Col = blockIdx.x*TILE_DIM;
+  Col += threadIdx.x;
 
   __shared__ double As[TILE_DIM][TILE_DIM];
   __shared__ double Bs[TILE_DIM][TILE_DIM];
 
     for (int k = 0; k < (TILE_DIM + ACols - 1)/TILE_DIM; k++) {
+      int x = threadIdx.x;
+      int y = threadIdx.y;
+      if (k*TILE_DIM + threadIdx.x < ACols && Row < ARows) As[y][x] = A[Row*ACols + k*TILE_DIM + x];
+      else As[y][x] = 0.0;
 
-      if (k*TILE_DIM + threadIdx.x < ACols && Row < ARows) As[threadIdx.y][threadIdx.x] = A[Row*ACols + k*TILE_DIM + threadIdx.x];
-      else As[threadIdx.y][threadIdx.x] = 0.0;
-
-      if (k*TILE_DIM + threadIdx.y < BRows && Col < BCols)  Bs[threadIdx.y][threadIdx.x] = B[(k*TILE_DIM + threadIdx.y)*BCols + Col];
-      else Bs[threadIdx.y][threadIdx.x] = 0.0;
+      if (k*TILE_DIM + threadIdx.y < BRows && Col < BCols)  Bs[y][x] = B[(k*TILE_DIM + y)*BCols + Col];
+      else Bs[y][x] = 0.0;
 
       __syncthreads();
 
-      for (int n = 0; n < TILE_DIM; ++n) CValue += As[threadIdx.y][n] * Bs[n][threadIdx.x];
+      for (int n = 0; n < TILE_DIM; n++) CValue += As[y][n] * Bs[n][x];
 
       __syncthreads();
 
@@ -216,7 +220,7 @@ bool convergence(double *data, double *new_data, int N) {
 	for(int i = 0; i < N * N; i++) {
 		diff += fabs(data[i] - new_data[i]);
 	}
-	// cout << "convergence: " << diff << endl;
+	cout << "convergence: " << diff << endl;
 	return diff < epsilon;
 }
 
@@ -430,9 +434,9 @@ void SVD_and_PCA (int M,
             }
     }
 
-    // print_matrix("sigma", 1, N, *SIGMA);
-    // print_matrix("U", N, N, *U);
-    // print_matrix("V_T", M, M, *V_T);
+    print_matrix("sigma", 1, N, *SIGMA);
+    print_matrix("U", N, N, *U);
+    print_matrix("V_T", M, M, *V_T);
 
     // matmul(D, W, M, N, *K, *D_HAT);
     Mul(D, W, M, N, *K, *D_HAT, N);

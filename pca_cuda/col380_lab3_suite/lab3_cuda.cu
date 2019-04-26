@@ -5,6 +5,7 @@
 #include <string.h>
 #include <math.h>
 #include <algorithm>
+#include <vector>
 using namespace std;
 
 #define epsilon 1e-5
@@ -141,19 +142,20 @@ void jacobi(double *D, int N, double *EIGENVALUES, double *EIGENVECTOR) {
 	double *data;
 	double *old_data = (double*)malloc(sizeof(double) * N * N);
 	double *new_data = (double*)malloc(sizeof(double) * N * N);
+	double *EIGENVECTOR_temp = (double*)malloc(sizeof(double) * N * N);
 	// double *temp1;
 
 	for(int i = 0; i < N * N; i++) {
 		old_data[i] = D[i];
 	}
 	for(int i = 0; i < N; i++) {
-		EIGENVECTOR[i * N + i] = 1;
+		EIGENVECTOR_temp[i * N + i] = 1;
 	}
 	double *EIGENVECTORCuda;
 	cudaMalloc((void**)&data, sizeof(double) * N * N);
 	cudaMalloc((void**)&EIGENVECTORCuda, sizeof(double) * N * N);
 	cudaMemcpy(data, D, sizeof(double) * N * N, cudaMemcpyHostToDevice);
-	cudaMemcpy(EIGENVECTORCuda, EIGENVECTOR, sizeof(double) * N * N, cudaMemcpyHostToDevice);
+	cudaMemcpy(EIGENVECTORCuda, EIGENVECTOR_temp, sizeof(double) * N * N, cudaMemcpyHostToDevice);
 	int *p;
 	int *q;
 	cudaMalloc((void**)&p, sizeof(int) * (N - 1) * (N/2));
@@ -183,7 +185,7 @@ void jacobi(double *D, int N, double *EIGENVALUES, double *EIGENVECTOR) {
 		for(int j = 0; j < N * N; j++)
 			old_data[j] = new_data[j];
 	}
-	cudaMemcpy(EIGENVECTOR, EIGENVECTORCuda, sizeof(double) * N * N, cudaMemcpyDeviceToHost);
+	cudaMemcpy(EIGENVECTOR_temp, EIGENVECTORCuda, sizeof(double) * N * N, cudaMemcpyDeviceToHost);
 	// print_matrix("EIGENVECTOR", 4, 4, EIGENVECTOR);
 	// print_matrix("new_data", N, N, new_data);
 	// cout<<N<<endl;
@@ -191,7 +193,21 @@ void jacobi(double *D, int N, double *EIGENVALUES, double *EIGENVECTOR) {
 		EIGENVALUES[i] = fabs(new_data[i * N + i]);
 		// cout<<EIGENVALUES[i]<<",";
 	}
-	sort(EIGENVALUES, EIGENVALUES + N);
+    vector<pair<double, int>> EVal;
+    for(int i = 0; i < N; i++) {
+    	EVal.push_back(make_pair(EIGENVALUES[i], i));
+    }
+
+
+    sort(EVal.begin(), EVal.end());
+    reverse(EVal.begin(), EVal.end());
+    for(int i = 0; i < N; i++) {
+    	int k = EVal[i].second;
+    	for(int j = 0; j < N; j++) {
+    		EIGENVECTOR[j * N + k] = EIGENVECTOR_temp[j * N + i];
+    	}
+    }
+	// sort(EIGENVALUES, EIGENVALUES + N);
 	for(int i = 0; i < N; i++) {
 		cout<<EIGENVALUES[i]<<",";	
 	}
@@ -230,57 +246,57 @@ void SVD_and_PCA (int M,
     memset(EIGENVECTOR, 0, sizeof(EIGENVECTOR[0]) * N * N);
     jacobi(DTD, N, EIGENVALUES, EIGENVECTOR);
 
- //    double sigma_inv[M * N];
- //    memset(sigma_inv, 0, sizeof(sigma_inv[0]) * M * N);
- //    for(int i = 0; i < N; i++) {
- //    	(*SIGMA)[i] = sqrt(EIGENVALUES[i]);
- //    	// sigma[i * M + i] = sqrt(EIGENVALUES[i]);
- //    	sigma_inv[i * N + i] = 1 / sqrt(EIGENVALUES[i]);
- //    }
+    double sigma_inv[M * N];
+    memset(sigma_inv, 0, sizeof(sigma_inv[0]) * M * N);
+    for(int i = 0; i < N; i++) {
+    	(*SIGMA)[i] = sqrt(EIGENVALUES[i]);
+    	// sigma[i * M + i] = sqrt(EIGENVALUES[i]);
+    	sigma_inv[i * N + i] = 1 / sqrt(EIGENVALUES[i]);
+    }
 
- //    for(int i = 0; i < N; i++) {
- //    	for(int j = 0; j < N; j++) {
- //    		(*U)[i * N + j] = EIGENVECTOR[i * N + j];
- //    	}
- //    }
+    for(int i = 0; i < N; i++) {
+    	for(int j = 0; j < N; j++) {
+    		(*U)[i * N + j] = EIGENVECTOR[i * N + j];
+    	}
+    }
 
-	// double U_T[N * N];
-	// transpose(*U, N, N, U_T);
+	double U_T[N * N];
+	transpose(*U, N, N, U_T);
 
-	// // double temp[M * N];
-	// double *temp = (double*)malloc(sizeof(double) * M * N);
-	// matmul(sigma_inv, U_T, M, N, N, temp);
-	// matmul(temp, D_T, M, N, M, *V_T);
+	// double temp[M * N];
+	double *temp = (double*)malloc(sizeof(double) * M * N);
+	matmul(sigma_inv, U_T, M, N, N, temp);
+	matmul(temp, D_T, M, N, M, *V_T);
 
-	// free(temp);
+	free(temp);
 
-	// // PCA
- //    double sum_sigma = 0;
- //    for(int i = 0; i < N; i++) {
- //            sum_sigma += (*SIGMA)[i] * (*SIGMA)[i];
- //    }
- //    double ret = (double)retention / 100.0;
- //    double variance = 0;
- //    *K = -1;
- //    for(int i = 0; i < N;i++) {
- //            variance += ((*SIGMA)[i] * (*SIGMA)[i]) / sum_sigma;
- //            if(variance > ret) {
- //                    *K = i + 1;
- //                    break;
- //            }
- //    }
- //    if(*K == -1) *K = N;
+	// PCA
+    double sum_sigma = 0;
+    for(int i = 0; i < N; i++) {
+            sum_sigma += (*SIGMA)[i] * (*SIGMA)[i];
+    }
+    double ret = (double)retention / 100.0;
+    double variance = 0;
+    *K = -1;
+    for(int i = 0; i < N;i++) {
+            variance += ((*SIGMA)[i] * (*SIGMA)[i]) / sum_sigma;
+            if(variance > ret) {
+                    *K = i + 1;
+                    break;
+            }
+    }
+    if(*K == -1) *K = N;
 
- //    *D_HAT = (double*)malloc(sizeof(double) * M * (*K));
- //    double W[N * (*K)];
- //    for(int i = 0; i < N; i++) {
- //            for(int j = 0; j < (*K); j++) {
- //                    W[i * (*K) + j] = (*U)[i * N + j];
- //            }
- //    }
- //    matmul(D, W, M, N, *K, *D_HAT);
- //    cerr << "K = " << *K << endl;
- //    // print_matrix("D-Hat", N, *K, *D_HAT);    
+    *D_HAT = (double*)malloc(sizeof(double) * M * (*K));
+    double W[N * (*K)];
+    for(int i = 0; i < N; i++) {
+            for(int j = 0; j < (*K); j++) {
+                    W[i * (*K) + j] = (*U)[i * N + j];
+            }
+    }
+    matmul(D, W, M, N, *K, *D_HAT);
+    cerr << "K = " << *K << endl;
+    print_matrix("D-Hat", N, *K, *D_HAT);    
 }
 
 void read_file(char* filename, int M, int N, double* A) {

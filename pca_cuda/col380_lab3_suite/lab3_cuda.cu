@@ -73,6 +73,8 @@ __global__ void MatMul(double* A, double* B, double* C, int ARows, int ACols, in
 
   }
 
+  int x = threadIdx.x;
+  int y = threadIdx.y;
   if (Row < CRows && Col < CCols) C[((blockIdx.y * blockDim.y + y)*CCols)+(blockIdx.x*blockDim.x)+x]=CValue;
 
 }

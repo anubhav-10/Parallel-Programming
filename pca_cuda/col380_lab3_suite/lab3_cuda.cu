@@ -13,14 +13,16 @@ using namespace std;
 
 #define epsilon 1e-5
 #define BLOCK_SIZE 16
+#define TILE_DIM 16
 // /*
 // 	*****************************************************
 // 		TODO -- You must implement this function
 // 	*****************************************************
 // */
 __global__ void Muld(double*, double*, int, int, double*);
+__global__ void MatMul(double* A, double* B, double* C, int ARows, int ACols, int BRows, int BCols, int CRows, int CCols);
 
-void Mul(double* A, double* B, int hA, int wA, int wB, double* C) {
+void Mul(double* A, double* B, int hA, int wA, int wB, double* C, int N) {
 	int size; 
 	double* Ad;
 	size = hA * wA * sizeof(double);
@@ -33,13 +35,42 @@ void Mul(double* A, double* B, int hA, int wA, int wB, double* C) {
 	double* Cd;
 	size = hA * wB * sizeof(double);
 	cudaMalloc((void**)&Cd, size);
-	dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE);
-	dim3 dimGrid(wB / dimBlock.x, hA / dimBlock.y);
-	Muld<<<dimGrid, dimBlock>>>(Ad, Bd, wA, wB, Cd);
+	dim3 dimGrid((N + TILE_DIM - 1) / TILE_DIM, (N + TILE_DIM - 1) / TILE_DIM);
+    dim3 dimBlock(TILE_DIM, TILE_DIM);
+	MatMul<<<dimGrid, dimBlock>>>(Ad, Bd, Cd, hA, wA, wA, wB, hA, wB);
 	cudaMemcpy(C, Cd, size, cudaMemcpyDeviceToHost);
 	cudaFree(Ad);
 	cudaFree(Bd);
 	cudaFree(Cd);
+}
+
+__global__ void MatMul(double* A, double* B, double* C, int ARows, int ACols, int BRows, int BCols, int CRows, int CCols) {
+
+  double CValue = 0;
+  int Row = blockIdx.y*TILE_DIM + threadIdx.y;
+  int Col = blockIdx.x*TILE_DIM + threadIdx.x;
+
+  __shared__ double As[TILE_DIM][TILE_DIM];
+  __shared__ double Bs[TILE_DIM][TILE_DIM];
+
+    for (int k = 0; k < (TILE_DIM + ACols - 1)/TILE_DIM; k++) {
+
+      if (k*TILE_DIM + threadIdx.x < ACols && Row < ARows) As[threadIdx.y][threadIdx.x] = A[Row*ACols + k*TILE_DIM + threadIdx.x];
+      else As[threadIdx.y][threadIdx.x] = 0.0;
+
+      if (k*TILE_DIM + threadIdx.y < BRows && Col < BCols)  Bs[threadIdx.y][threadIdx.x] = B[(k*TILE_DIM + threadIdx.y)*BCols + Col];
+      else Bs[threadIdx.y][threadIdx.x] = 0.0;
+
+      __syncthreads();
+
+      for (int n = 0; n < TILE_DIM; ++n) CValue += As[threadIdx.y][n] * Bs[n][threadIdx.x];
+
+      __syncthreads();
+
+  }
+
+  if (Row < CRows && Col < CCols) C[((blockIdx.y * blockDim.y + threadIdx.y)*CCols)+(blockIdx.x*blockDim.x)+threadIdx.x]=CValue;
+
 }
 
 __global__ void Muld(double* A, double* B, int wA, int wB, double* C){
@@ -309,16 +340,17 @@ void SVD_and_PCA (int M,
     *V_T = (double*)malloc(sizeof(double) * M * M);
 
     // double D_T[N * M];
-    double D_T = (double*)malloc(sizeof(double) * M * N);
+    double *D_T = (double*)malloc(sizeof(double) * M * N);
     transpose(D, M, N, D_T);
     // double DTD[N * N];
-    double DTD = (double*)malloc(sizeof(double) * N * N);
-
+    double *DTD = (double*)malloc(sizeof(double) * N * N);
+    memset(DTD, 0, sizeof(DTD[0]) * N * N);
     // double *D_cuda, *D_T_cuda, *DTD_cuda;
     // cudaMalloc((void**)&D_cuda, sizeof(double) * M * N);
     // cudaMalloc((void**)&D_T_cuda, sizeof(double) * N * M);
     // cudaMalloc((void**)&DTD_cuda, sizeof(double) * N * N);
-    Mul(D_T, D, N, M, N, DTD);
+    // matmul(D_T, D, N, M, N, DTD);
+    Mul(D_T, D, N, M, N, DTD, N);
     // cudaMemcpy(D, D_cuda, sizeof(double) * M * N, cudaMemcpyHostToDevice);
     // cudaMemcpy(D_T, D_T_cuda, sizeof(double) * N * M, cudaMemcpyHostToDevice);
 
@@ -328,11 +360,11 @@ void SVD_and_PCA (int M,
 	// print_matrix("res", N, N, DTD);
 
     double *EIGENVALUES = (double*)malloc(sizeof(double) * N);
-    double EIGENVECTOR = (double*)malloc(sizeof(double) * N * N);
+    double *EIGENVECTOR = (double*)malloc(sizeof(double) * N * N);
     memset(EIGENVECTOR, 0, sizeof(EIGENVECTOR[0]) * N * N);
     jacobi(DTD, N, EIGENVALUES, EIGENVECTOR);
 
-    double sigma_inv = (double*)malloc(sizeof(double) * M * N);;
+    double *sigma_inv = (double*)malloc(sizeof(double) * M * N);;
     memset(sigma_inv, 0, sizeof(sigma_inv[0]) * M * N);
     for(int i = 0; i < N; i++) {
     	(*SIGMA)[i] = sqrt(EIGENVALUES[i]);
@@ -346,12 +378,14 @@ void SVD_and_PCA (int M,
     	}
     }
 
-	double U_T = (double*)malloc(sizeof(double) * N * N);;
+	double *U_T = (double*)malloc(sizeof(double) * N * N);;
 	transpose(*U, N, N, U_T);
 
 	double *temp = (double*)malloc(sizeof(double) * M * N);
-	Mul(sigma_inv, U_T, M, N, N, temp);
-	Mul(temp, D_T, M, N, M, *V_T);
+	// matmul(sigma_inv, U_T, M, N, N, temp);
+	Mul(sigma_inv, U_T, M, N, N, temp, N);
+	// matmul(temp, D_T, M, N, M, *V_T);
+	Mul(temp, D_T, M, N, M, *V_T, N);
 
 	// double *sigma_inv_cuda, *U_T_cuda, *temp_cuda, *V_T_cuda;
  //    cudaMalloc((void**)&sigma_inv_cuda, sizeof(double) * M * N);
@@ -399,7 +433,8 @@ void SVD_and_PCA (int M,
     print_matrix("U", N, N, *U);
     print_matrix("V_T", M, M, *V_T);
 
-    Mul(D, W, M, N, *K, *D_HAT);
+    // matmul(D, W, M, N, *K, *D_HAT);
+    Mul(D, W, M, N, *K, *D_HAT, N);
     // double *W_cuda, *D_HAT_cuda;
     // cudaMalloc((void**)&sigma_inv_cuda, sizeof(double) * M * N);
     // cudaMalloc((void**)&U_T_cuda, sizeof(double) * N * N);

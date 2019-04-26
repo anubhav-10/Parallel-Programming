@@ -216,7 +216,7 @@ bool convergence(double *data, double *new_data, int N) {
 	for(int i = 0; i < N * N; i++) {
 		diff += fabs(data[i] - new_data[i]);
 	}
-	cout << "convergence: " << diff << endl;
+	// cout << "convergence: " << diff << endl;
 	return diff < epsilon;
 }
 
@@ -440,66 +440,66 @@ void SVD_and_PCA (int M,
     // cudaMalloc((void**)&sigma_inv_cuda, sizeof(double) * M * N);
     // cudaMalloc((void**)&U_T_cuda, sizeof(double) * N * N);
 
-    cerr << "K = " << *K << endl;
+    // cerr << "K = " << *K << endl;
     // print_matrix("D-Hat", M, *K, *D_HAT);    
 }
 
-void read_file(char* filename, int *num_samples, int *num_features, double** A) {
-	std::chrono::high_resolution_clock::time_point t1, t2;
-	t1 = std::chrono::high_resolution_clock::now();
+// void read_file(char* filename, int *num_samples, int *num_features, double** A) {
+// 	std::chrono::high_resolution_clock::time_point t1, t2;
+// 	t1 = std::chrono::high_resolution_clock::now();
 
-    ifstream ifile;
-    ifile.open(filename, ios::in);
-    int M, N;
-    ifile >> M >> N;
-    cout << M << " " << N << endl;
-    *A = (double *)malloc(sizeof(double)*M*N);
-    num_samples[0] = M;
-    num_features[0] = N;
-    double tmp;
-    for (int i=0; i<M; i++) {
-        for (int j=0; j<N; j++){
-            ifile >> tmp;
-            *((*A) + i*N + j) = tmp;
-        }
-    }
+//     ifstream ifile;
+//     ifile.open(filename, ios::in);
+//     int M, N;
+//     ifile >> M >> N;
+//     cout << M << " " << N << endl;
+//     *A = (double *)malloc(sizeof(double)*M*N);
+//     num_samples[0] = M;
+//     num_features[0] = N;
+//     double tmp;
+//     for (int i=0; i<M; i++) {
+//         for (int j=0; j<N; j++){
+//             ifile >> tmp;
+//             *((*A) + i*N + j) = tmp;
+//         }
+//     }
 
-    ifile.close();
+//     ifile.close();
 
-	t2 = std::chrono::high_resolution_clock::now();
-	std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+// 	t2 = std::chrono::high_resolution_clock::now();
+// 	std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
 
-  	std::cout << "File Reading Time " << time_span.count() << " seconds.\n";
+//   	std::cout << "File Reading Time " << time_span.count() << " seconds.\n";
 
 
-}
+// }
 
-int main(int argc, char **argv){
-	// int N = 300;
-	// int M = 1000;
-	int M, N;
-	char* filename = argv[1];
-	double *D; //= (double*)malloc(sizeof(double) * (M) * N);
-	// double *D_T = (double*)malloc(sizeof(double) * (N) * N);
-	// double *res = (double*)malloc(sizeof(double) * (N) * N);
-	read_file((char*)filename, &M, &N, &D);
-	// transpose(D, 4, 4, D_T);
-	// matmul(D_T, D, 4, 4, 4, res);
-	// print_matrix("res", 4, 4, res);
-	// return 0;
-	// double *EIGENVECTOR = (double*)malloc(sizeof(double) * N * N);
-	// double * EIGENVALUES = (double*)malloc(sizeof(double) * N * N);
-	// jacobi(res, N, EIGENVECTOR, EIGENVECTOR);
-	double *U;
-	double *SIGMA;
-	double *V_T;
-	double *D_HAT;
-	int K;
-	int retention = stoi(argv[2]);
+// int main(int argc, char **argv){
+// 	// int N = 300;
+// 	// int M = 1000;
+// 	int M, N;
+// 	char* filename = argv[1];
+// 	double *D; //= (double*)malloc(sizeof(double) * (M) * N);
+// 	// double *D_T = (double*)malloc(sizeof(double) * (N) * N);
+// 	// double *res = (double*)malloc(sizeof(double) * (N) * N);
+// 	read_file((char*)filename, &M, &N, &D);
+// 	// transpose(D, 4, 4, D_T);
+// 	// matmul(D_T, D, 4, 4, 4, res);
+// 	// print_matrix("res", 4, 4, res);
+// 	// return 0;
+// 	// double *EIGENVECTOR = (double*)malloc(sizeof(double) * N * N);
+// 	// double * EIGENVALUES = (double*)malloc(sizeof(double) * N * N);
+// 	// jacobi(res, N, EIGENVECTOR, EIGENVECTOR);
+// 	double *U;
+// 	double *SIGMA;
+// 	double *V_T;
+// 	double *D_HAT;
+// 	int K;
+// 	int retention = stoi(argv[2]);
 
-	SVD_and_PCA(M, N, D, &U, &SIGMA, &V_T, &D_HAT, &K, retention);
-	// free(D);
-	// free(SIGMA);
-	// free(V_T);
-	// free(D_HAT);
-}
+// 	SVD_and_PCA(M, N, D, &U, &SIGMA, &V_T, &D_HAT, &K, retention);
+// 	// free(D);
+// 	// free(SIGMA);
+// 	// free(V_T);
+// 	// free(D_HAT);
+// }

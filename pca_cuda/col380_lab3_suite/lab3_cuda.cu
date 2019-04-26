@@ -11,7 +11,7 @@
 #include <chrono>
 using namespace std;
 
-#define epsilon 1e-5
+#define epsilon 1e-4
 #define BLOCK_SIZE 16
 #define TILE_DIM 16
 // /*
@@ -238,7 +238,7 @@ void jacobi(double *D_N, int N, double *EIGENVALUES, double *EIGENVECTOR) {
 
 
 
-	double *data;
+	double *data, *data1;
 	double *old_data = (double*)malloc(sizeof(double) * N * N);
 	double *new_data = (double*)malloc(sizeof(double) * N * N);
 	double *EIGENVECTOR_temp = (double*)calloc(N * N, sizeof(double));
@@ -253,6 +253,7 @@ void jacobi(double *D_N, int N, double *EIGENVALUES, double *EIGENVECTOR) {
 	double *EIGENVECTORCuda;
 	cudaMalloc((void**)&data, sizeof(double) * N * N);
 	cudaMalloc((void**)&EIGENVECTORCuda, sizeof(double) * N * N);
+	cudaMalloc((void**)&data1, sizeof(double)*N*N);
 	cudaMemcpy(data, D, sizeof(double) * N * N, cudaMemcpyHostToDevice);
 	cudaMemcpy(EIGENVECTORCuda, EIGENVECTOR_temp, sizeof(double) * N * N, cudaMemcpyHostToDevice);
 	int *p;
@@ -273,9 +274,9 @@ void jacobi(double *D_N, int N, double *EIGENVALUES, double *EIGENVECTOR) {
 		for(int i = 0; i < N - 1; i++) {
 			findSinCos<<<N / 2, 1>>>(data, p, q, N, sin, cos, i);
 			cudaDeviceSynchronize();
-			updateRow<<<N / 2, N>>>(data, p, q, N, sin, cos, i, data);
+			updateRow<<<N / 2, N>>>(data, p, q, N, sin, cos, i, data1);
 			cudaDeviceSynchronize();
-			updateCol<<<N / 2, N>>>(data, p, q, N, sin, cos, i, data);
+			updateCol<<<N / 2, N>>>(data1, p, q, N, sin, cos, i, data);
 			updateCol<<<N / 2, N>>>(EIGENVECTORCuda, p, q, N, sin, cos, i ,EIGENVECTORCuda);
 			cudaDeviceSynchronize();
 		}
@@ -335,9 +336,9 @@ void SVD_and_PCA (int M,
         int *K,
         int retention) {
     // SVD
-    *U = (double*)malloc(sizeof(double) * N * N);
-    *SIGMA = (double*)malloc(sizeof(double) * N);
-    *V_T = (double*)malloc(sizeof(double) * M * M);
+    // *U = (double*)malloc(sizeof(double) * N * N);
+    // *SIGMA = (double*)malloc(sizeof(double) * N);
+    // *V_T = (double*)malloc(sizeof(double) * M * M);
 
     // double D_T[N * M];
     double *D_T = (double*)malloc(sizeof(double) * M * N);
@@ -429,9 +430,9 @@ void SVD_and_PCA (int M,
             }
     }
 
-    print_matrix("sigma", 1, N, *SIGMA);
-    print_matrix("U", N, N, *U);
-    print_matrix("V_T", M, M, *V_T);
+    // print_matrix("sigma", 1, N, *SIGMA);
+    // print_matrix("U", N, N, *U);
+    // print_matrix("V_T", M, M, *V_T);
 
     // matmul(D, W, M, N, *K, *D_HAT);
     Mul(D, W, M, N, *K, *D_HAT, N);
@@ -440,7 +441,7 @@ void SVD_and_PCA (int M,
     // cudaMalloc((void**)&U_T_cuda, sizeof(double) * N * N);
 
     cerr << "K = " << *K << endl;
-    print_matrix("D-Hat", M, *K, *D_HAT);    
+    // print_matrix("D-Hat", M, *K, *D_HAT);    
 }
 
 void read_file(char* filename, int *num_samples, int *num_features, double** A) {

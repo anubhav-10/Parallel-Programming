@@ -47,16 +47,16 @@ void Mul(double* A, double* B, int hA, int wA, int wB, double* C, int N) {
 
 __global__ void MatMul(double* A, double* B, double* C, int ARows, int ACols, int BRows, int BCols, int CRows, int CCols) {
 
-  double CValue = 0;
   int Row = blockIdx.y*TILE_DIM;
   Row += threadIdx.y;
   int Col = blockIdx.x*TILE_DIM;
   Col += threadIdx.x;
+  double CValue = 0;
 
   __shared__ double As[TILE_DIM][TILE_DIM];
   __shared__ double Bs[TILE_DIM][TILE_DIM];
 
-    for (int k = 0; k < (TILE_DIM + ACols - 1)/TILE_DIM; k++) {
+    for (int k = 0; k < (TILE_DIM + ACols - 1)/TILE_DIM; ++k) {
       int x = threadIdx.x;
       int y = threadIdx.y;
       if (k*TILE_DIM + threadIdx.x < ACols && Row < ARows) As[y][x] = A[Row*ACols + k*TILE_DIM + x];
@@ -73,45 +73,45 @@ __global__ void MatMul(double* A, double* B, double* C, int ARows, int ACols, in
 
   }
 
-  if (Row < CRows && Col < CCols) C[((blockIdx.y * blockDim.y + threadIdx.y)*CCols)+(blockIdx.x*blockDim.x)+threadIdx.x]=CValue;
+  if (Row < CRows && Col < CCols) C[((blockIdx.y * blockDim.y + y)*CCols)+(blockIdx.x*blockDim.x)+x]=CValue;
 
 }
 
-__global__ void Muld(double* A, double* B, int wA, int wB, double* C){
-	int bx = blockIdx.x;
-	int by = blockIdx.y;
-	int tx = threadIdx.x;
-	int ty = threadIdx.y;
-	int aBegin = wA * BLOCK_SIZE * by;
-	int aEnd   = aBegin + wA - 1;
-	int aStep  = BLOCK_SIZE;
-	int bBegin = BLOCK_SIZE * bx;
-	int bStep  = BLOCK_SIZE * wB;
-	double Csub = 0;
-	for (int a = aBegin, b = bBegin;a <= aEnd;a += aStep, b += bStep) {
-		__shared__ double As[BLOCK_SIZE][BLOCK_SIZE];
-		__shared__ double Bs[BLOCK_SIZE][BLOCK_SIZE];
-		As[ty][tx] = A[a + wA * ty + tx]; 
-		Bs[ty][tx] = B[b + wB * ty + tx];
-		__syncthreads();
-		for (int k = 0; k < BLOCK_SIZE; ++k)
-			Csub += As[ty][k] * Bs[k][tx];
-		__syncthreads();
-	}
-	int c = wB * BLOCK_SIZE * by + BLOCK_SIZE * bx;
-	C[c + wB * ty + tx] = Csub;
-}
+// __global__ void Muld(double* A, double* B, int wA, int wB, double* C){
+// 	int bx = blockIdx.x;
+// 	int by = blockIdx.y;
+// 	int tx = threadIdx.x;
+// 	int ty = threadIdx.y;
+// 	int aBegin = wA * BLOCK_SIZE * by;
+// 	int aEnd   = aBegin + wA - 1;
+// 	int aStep  = BLOCK_SIZE;
+// 	int bBegin = BLOCK_SIZE * bx;
+// 	int bStep  = BLOCK_SIZE * wB;
+// 	double Csub = 0;
+// 	for (int a = aBegin, b = bBegin;a <= aEnd;a += aStep, b += bStep) {
+// 		__shared__ double As[BLOCK_SIZE][BLOCK_SIZE];
+// 		__shared__ double Bs[BLOCK_SIZE][BLOCK_SIZE];
+// 		As[ty][tx] = A[a + wA * ty + tx]; 
+// 		Bs[ty][tx] = B[b + wB * ty + tx];
+// 		__syncthreads();
+// 		for (int k = 0; k < BLOCK_SIZE; ++k)
+// 			Csub += As[ty][k] * Bs[k][tx];
+// 		__syncthreads();
+// 	}
+// 	int c = wB * BLOCK_SIZE * by + BLOCK_SIZE * bx;
+// 	C[c + wB * ty + tx] = Csub;
+// }
 
-void print_matrix(string name, int M, int N, double* A){
-	cerr << name << ": \n";
-	for(int i=0; i<M; i++){
-		for(int j=0; j<N; j++){
-			cerr << A[i*N + j] << " " ;
-		}
-		cerr << endl;
-	}
-	cerr << endl;
-}
+// void print_matrix(string name, int M, int N, double* A){
+// 	cerr << name << ": \n";
+// 	for(int i=0; i<M; i++){
+// 		for(int j=0; j<N; j++){
+// 			cerr << A[i*N + j] << " " ;
+// 		}
+// 		cerr << endl;
+// 	}
+// 	cerr << endl;
+// }
 
 void transpose(double *Data, int M, int N, double *Data_T) {
 	for(int i = 0; i < M; i++) {
@@ -220,7 +220,7 @@ bool convergence(double *data, double *new_data, int N) {
 	for(int i = 0; i < N * N; i++) {
 		diff += fabs(data[i] - new_data[i]);
 	}
-	cout << "convergence: " << diff << endl;
+	// cout << "convergence: " << diff << endl;
 	return diff < epsilon;
 }
 
@@ -229,8 +229,9 @@ void jacobi(double *D_N, int N, double *EIGENVALUES, double *EIGENVECTOR) {
 	double *D = D_N;
 	int N1 = N;
 	if(N % 2 == 1 ){
-		D = (double*)calloc((N+1)*(N+1), sizeof(double));
-
+		// D = (double*)calloc((N+1)*(N+1), sizeof(double));
+		D = (double*)malloc(sizeof(double) * (N + 1) * (N + 1));
+		memset(D, 0, sizeof(D[0]) * N * N);
 		for(int i=0; i<N; i++){
 			for(int j=0; j<N; j++){
 				D[i*(N+1) + j] = D_N[i*N + j];
@@ -255,9 +256,13 @@ void jacobi(double *D_N, int N, double *EIGENVALUES, double *EIGENVECTOR) {
 		EIGENVECTOR_temp[i * N + i] = 1;
 	}
 	double *EIGENVECTORCuda;
+	double *sin, *cos;
 	cudaMalloc((void**)&data, sizeof(double) * N * N);
 	cudaMalloc((void**)&EIGENVECTORCuda, sizeof(double) * N * N);
 	cudaMalloc((void**)&data1, sizeof(double)*N*N);
+	cudaMalloc((void**)&sin, sizeof(double) * (N / 2));
+	cudaMalloc((void**)&cos, sizeof(double) * (N / 2));
+
 	cudaMemcpy(data, D, sizeof(double) * N * N, cudaMemcpyHostToDevice);
 	cudaMemcpy(EIGENVECTORCuda, EIGENVECTOR_temp, sizeof(double) * N * N, cudaMemcpyHostToDevice);
 	int *p;
@@ -267,10 +272,6 @@ void jacobi(double *D_N, int N, double *EIGENVALUES, double *EIGENVECTOR) {
 
 	chessTournament<<<N - 1, N/2>>>(N, p, q);
 	cudaDeviceSynchronize();
-
-	double *sin, *cos;
-	cudaMalloc((void**)&sin, sizeof(double) * (N / 2));
-	cudaMalloc((void**)&cos, sizeof(double) * (N / 2));
 
 	bool converged = 0;
 
@@ -434,9 +435,9 @@ void SVD_and_PCA (int M,
             }
     }
 
-    print_matrix("sigma", 1, N, *SIGMA);
-    print_matrix("U", N, N, *U);
-    print_matrix("V_T", M, M, *V_T);
+    // print_matrix("sigma", 1, N, *SIGMA);
+    // print_matrix("U", N, N, *U);
+    // print_matrix("V_T", M, M, *V_T);
 
     // matmul(D, W, M, N, *K, *D_HAT);
     Mul(D, W, M, N, *K, *D_HAT, N);

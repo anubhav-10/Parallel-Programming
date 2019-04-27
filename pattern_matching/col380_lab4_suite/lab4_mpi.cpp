@@ -220,11 +220,11 @@ void periodic_pattern_matching (
 
 	MPI_Gatherv(sbuf, sendcnt, MPI_INT, *match_counts, revcnts1, disp, MPI_INT, 0, MPI_COMM_WORLD);
 
-	if(rank == 0){
-		for(int i=0;i<num_patterns;i++)
-			cout << (*match_counts)[i] <<" : ";
-		cout <<endl;
-	}
+	// if(rank == 0){
+	// 	for(int i=0;i<num_patterns;i++)
+	// 		cout << (*match_counts)[i] <<" : ";
+	// 	cout <<endl;
+	// }
 	int *sbuf2;
 	if (matches_local.size() == 0)
 		sbuf2 = nullptr;
@@ -244,7 +244,7 @@ void periodic_pattern_matching (
 			if (i == num_proc - 1)
 				end = num_patterns;
 			revcnts2[i] = 0;
-			cout << start << " : "<< end << endl;
+			// cout << start << " : "<< end << endl;
 
 			for (int j = start; j < end; j++){
 				revcnts2[i] += (*match_counts)[j];
@@ -260,19 +260,19 @@ void periodic_pattern_matching (
 		size = disp2[num_proc - 1] + revcnts2[num_proc - 1];
 		*matches = (int*)malloc(sizeof(int) * (disp2[num_proc - 1] + revcnts2[num_proc - 1]));
 	}
-	if(rank == 0){
-		for(int i=0;i<num_proc;i++){
-			cout << revcnts2[i] << " : ";
-		}
-		cout << endl;
+	// if(rank == 0){
+	// 	for(int i=0;i<num_proc;i++){
+	// 		cout << revcnts2[i] << " : ";
+	// 	}
+	// 	cout << endl;
 
-		for(int i=0;i<num_proc;i++){
-			cout << disp2[i] << " : ";
-		}
-		cout << endl;
+	// 	for(int i=0;i<num_proc;i++){
+	// 		cout << disp2[i] << " : ";
+	// 	}
+	// 	cout << endl;
 	
 
-	}
+	// }
 
 	MPI_Gatherv(sbuf2, sendcnt2, MPI_INT, *matches, revcnts2, disp2, MPI_INT, 0, MPI_COMM_WORLD);
 

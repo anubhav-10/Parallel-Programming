@@ -113,7 +113,7 @@ bool checkConvergence(float *D, float *E, float *D1, float *E1, int N) {
 			// 	return 0;
 		}
 	}
-	// cout << conv << endl;
+	cout << conv << endl;
 	return conv < epsilon;
 }
 
@@ -142,7 +142,6 @@ void QRAlgo(float *mat, int M, int N, float *eigenValues, float *eigenVectors) {
 		matmul(R, Q, N, N, N, D1);
 		matmul(E, Q, N, N, N, E1);
 		converged = checkConvergence(D, E, D1, E1, N);
-
 		#pragma omp parallel for
 		for(int i = 0; i < N; i++) {
 			for(int j = 0; j < N; j++) {

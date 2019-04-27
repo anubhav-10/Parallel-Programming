@@ -339,9 +339,18 @@ void SVD_and_PCA (int M,
         double** U, 
         double** SIGMA, 
         double** V_T, 
+        int* SIGMAm,
+        int* SIGMAn, 
         double** D_HAT, 
         int *K,
         int retention) {
+
+	*SIGMAm = N;
+	*SIGMAn = M;
+	*U = (double*) malloc(sizeof(double) * N*N);
+	*SIGMA = (double*) malloc(sizeof(double) * N);
+	*V_T = (double*) malloc(sizeof(double) * M*M);
+
     // SVD
     // *U = (double*)malloc(sizeof(double) * N * N);
     // *SIGMA = (double*)malloc(sizeof(double) * N);
